@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+build
+.env
+.env.local
+.env.*.local
+*.pem
+.vercel
+.DS_Store
+*.tsbuildinfo
+.ideavo/project
+*.log
