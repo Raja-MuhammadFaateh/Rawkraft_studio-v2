@@ -135,10 +135,16 @@ ON CONFLICT (product_id) DO NOTHING;
 
 -- 5. Site Settings
 INSERT INTO site_settings (key, value, description) VALUES
-('business_info', '{"name": "RawKraft Studio", "tagline": "Bespoke Solid Hardwood & Live-Edge Atelier", "phone": "+92 331 7497444", "whatsapp": "+92 331 7497444", "whatsapp_raw": "+923317497444", "email": "info@rawkraftstudio.com", "city": "Rawalpindi / Islamabad", "country": "Pakistan", "instagram": "https://www.instagram.com/rawkraft_studio", "facebook": "https://www.facebook.com/share/1J5U7xyPwT/"}', 'General business and contact details'),
+('business_info', '{"name": "RawKraft Studio", "tagline": "Bespoke Solid Hardwood & Live-Edge Atelier", "phone": "+92 331 7497444", "whatsapp": "+92 331 7497444", "whatsapp_raw": "+923317497444", "email": "info@rawkraftstudio.com", "city": "Multan", "country": "Pakistan", "instagram": "https://www.instagram.com/rawkraft_studio", "facebook": "https://www.facebook.com/share/1J5U7xyPwT/"}', 'General business and contact details'),
 ('shipping_policy', '{"delivery_scope": "Nationwide Pakistan crated freight", "lead_time": "3-4 weeks", "deposit_pct": 50}', 'Shipping and delivery terms'),
 ('seo_defaults', '{"title": "RawKraft Studio | Bespoke Handcrafted Furniture & Live-Edge Slabs", "description": "Premium bespoke furniture studio website with interactive catalog, custom piece configurator, WhatsApp brief builder, and studio AI design consultant."}', 'Default SEO meta tags')
 ON CONFLICT (key) DO NOTHING;
+
+-- 5b. Initial Authorized Staff Members (Hashed Passwords with scrypt)
+INSERT INTO team_members (id, email, full_name, role, is_active, password_hash, salt) VALUES
+('u1000000-0000-0000-0000-000000000001', 'faateh2006@gmail.com', 'Raja Muhammad Faateh', 'OWNER', TRUE, 'fdaa7e98c7338e545cf5d0795160ec23e52c3017c5dce13b1d471a63733c790aabad4f4bf15996c94620cd6bbf7e2359a1760201c86207fb8adefdfe61eba997', 'a1b2c3d4e5f60718'),
+('u1000000-0000-0000-0000-000000000002', 'admin@rawkraftstudio.com', 'RawKraft Studio Master', 'ADMIN', TRUE, 'fdaa7e98c7338e545cf5d0795160ec23e52c3017c5dce13b1d471a63733c790aabad4f4bf15996c94620cd6bbf7e2359a1760201c86207fb8adefdfe61eba997', 'a1b2c3d4e5f60718')
+ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, salt = EXCLUDED.salt;
 
 -- 6. Navigation Items
 INSERT INTO navigation_items (menu_location, label, url, is_external, is_enabled, sort_order) VALUES

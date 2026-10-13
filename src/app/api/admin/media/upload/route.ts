@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminUser } from '@/lib/auth/session';
 import { createAdminSupabaseClient } from '@/lib/supabase/admin';
 import { dataRepository } from '@/lib/data/repository';
+import sharp from 'sharp';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_DIMENSION = 4096; // 4096px width/height limit
 
 // Magic bytes validation for safe images
 function isValidImageSignature(buffer: Buffer): { valid: boolean; ext: string; mime: string } {
@@ -54,7 +56,10 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
-    const folder = (formData.get('folder') as string) || 'products';
+    const rawFolder = (formData.get('folder') as string) || 'products';
+
+    // Prevent path traversal
+    const safeFolder = rawFolder.replace(/[^a-zA-Z0-9_-]/g, '') || 'products';
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -70,7 +75,7 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Verify magic bytes signature
+    // 1. Verify magic bytes signature
     const signature = isValidImageSignature(buffer);
     if (!signature.valid) {
       return NextResponse.json(
@@ -82,9 +87,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const filename = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${signature.ext}`;
+    // 2. Decode image and check dimensions with sharp
+    try {
+      const metadata = await sharp(buffer).metadata();
+      if (!metadata.width || !metadata.height) {
+        return NextResponse.json({ error: 'Could not decode image metadata' }, { status: 400 });
+      }
 
-    // 1. Upload to Supabase Storage if configured
+      if (metadata.width > MAX_DIMENSION || metadata.height > MAX_DIMENSION) {
+        return NextResponse.json(
+          {
+            error: `Image dimensions (${metadata.width}x${metadata.height}) exceed maximum allowed ${MAX_DIMENSION}x${MAX_DIMENSION} pixels`,
+          },
+          { status: 400 }
+        );
+      }
+    } catch (decodeErr: any) {
+      return NextResponse.json(
+        { error: 'Corrupted or unreadable image file' },
+        { status: 400 }
+      );
+    }
+
+    // Server-generated random filename
+    const filename = `${safeFolder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${signature.ext}`;
+
+    // 3. Upload to Supabase Storage if configured
     const supabase = createAdminSupabaseClient();
     if (supabase) {
       try {
@@ -116,11 +144,11 @@ export async function POST(req: NextRequest) {
           });
         }
       } catch (err) {
-        console.warn('Supabase storage upload failed, using data URI fallback:', err);
+        console.warn('Supabase storage upload failed:', err);
       }
     }
 
-    // In local dev without active Supabase Storage bucket, return base64 Data URL
+    // Local dev fallback data URL
     const base64Data = buffer.toString('base64');
     const dataUrl = `data:${signature.mime};base64,${base64Data}`;
 

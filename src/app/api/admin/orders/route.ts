@@ -18,7 +18,18 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  // Public or Admin can create orders
+  const { user, authorized } = await requireAdminUser([
+    'OWNER',
+    'ADMIN',
+    'ORDERS_MANAGER',
+  ]);
+  if (!authorized || !user) {
+    return NextResponse.json(
+      { error: 'Forbidden: Requires studio order management permissions' },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = await req.json();
     const order = await dataRepository.createOrder(body);
@@ -26,7 +37,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || 'Failed to create order' },
-      { status: 500 }
+      { status: 400 }
     );
   }
 }

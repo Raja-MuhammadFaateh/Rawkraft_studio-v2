@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p 3000 -H 0.0.0.0",
     "lint": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "npx tsx scripts/run-security-tests.ts"
   },
   "dependencies": {
     "@google/genai": "^2.27.0",

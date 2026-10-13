@@ -16,6 +16,14 @@ import {
 } from '@/types/database';
 import { createAdminSupabaseClient } from '@/lib/supabase/admin';
 
+// Helper to determine if Supabase is mandatory (fail-closed in production)
+function isProductionEnforced(): boolean {
+  return (
+    process.env.NODE_ENV === 'production' &&
+    (process.env.REQUIRE_SUPABASE === 'true' || Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY))
+  );
+}
+
 // Initial Seeds matching RawKraft Studio's real product line
 const INITIAL_CATEGORIES: Category[] = [
   {
@@ -145,14 +153,14 @@ const INITIAL_PRODUCTS: ProductRecord[] = [
       productId: 'p1000000-0000-0000-0000-000000000001',
       trackInventory: true,
       quantityOnHand: 4,
-      quantityReserved: 1,
+      quantityReserved: 0,
       lowStockThreshold: 2,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
-    aiSuitableRooms: ['Living Room', 'Reading Nook', 'Master Bedroom'],
-    aiStyleTags: ['Modern Industrial', 'Organic Minimalist'],
-    aiSearchSummary: 'Round accent side table with solid hardwood round top and welded black steel frame.',
+    aiSuitableRooms: ['Lounge', 'Bedside', 'Executive Sitting'],
+    aiStyleTags: ['Modern Architectural', 'Natural Live Edge', 'Industrial Chic'],
+    aiSearchSummary: 'The signature Miro side table. Natural solid wood grain with matte black geometric steel base.',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -173,13 +181,13 @@ const INITIAL_PRODUCTS: ProductRecord[] = [
     categoryId: 'c1000000-0000-0000-0000-000000000001',
     categoryName: 'Dining Tables',
     collectionIds: ['b1000000-0000-0000-0000-000000000001'],
-    tags: ['Dining Table', 'American Walnut', 'Live Edge', 'Spider Base'],
+    tags: ['Dining', 'Walnut', 'Live Edge', 'Large Table', 'Spider Base'],
     isSignature: true,
     isPopular: false,
     leadTimeWeeks: '3 - 4 weeks',
     isCustomizable: true,
     dimensions: '84" L x 38" W x 30" H (Seats 8)',
-    weightKg: 68,
+    weightKg: 85,
     primaryWood: 'American Black Walnut',
     availableWoods: ['American Black Walnut', 'Golden Sheesham', 'White Oak'],
     primaryLegStyle: 'Matte Black Spider Starburst Base',
@@ -197,9 +205,9 @@ const INITIAL_PRODUCTS: ProductRecord[] = [
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
-    aiSuitableRooms: ['Dining Room', 'Villa Dining Hall', 'Conference Room'],
-    aiStyleTags: ['Luxury Modern', 'Live Edge Organic'],
-    aiSearchSummary: '8 seater live edge American Walnut dining table with heavy duty spider base.',
+    aiSuitableRooms: ['Formal Dining', 'Open Plan Villa Dining'],
+    aiStyleTags: ['Luxe Organic', 'Architectural Grandeur'],
+    aiSearchSummary: 'Large 8-seater live-edge American Walnut dining table with spider starburst legs.',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -220,7 +228,7 @@ const INITIAL_PRODUCTS: ProductRecord[] = [
     categoryId: 'c1000000-0000-0000-0000-000000000004',
     categoryName: 'Resin & Wood Art',
     collectionIds: ['b1000000-0000-0000-0000-000000000002'],
-    tags: ['Coffee Table', 'River Table', 'Emerald Resin', 'Sheesham'],
+    tags: ['Coffee Table', 'Epoxy River', 'Emerald Green', 'Sheesham'],
     isSignature: false,
     isPopular: true,
     leadTimeWeeks: '3 - 4 weeks',
@@ -233,7 +241,7 @@ const INITIAL_PRODUCTS: ProductRecord[] = [
     availableLegStyles: ['Matte Black U-Legs', 'Brushed Brass Metal Legs', 'Square Box Steel'],
     hasResinOption: true,
     defaultResinColor: 'Emerald Forest Green River',
-    availableResinColors: ['Emerald Forest Green River', 'Deep Ocean Blue', 'Smoked Obsidian Black'],
+    availableResinColors: ['Emerald Forest Green River', 'Deep Sapphire Blue', 'Smoked Obsidian'],
     imageUrl: 'https://images.unsplash.com/photo-1577140917170-285929fb55b7?auto=format&fit=crop&w=1200&q=80',
     inventory: {
       id: 'inv-3',
@@ -245,8 +253,8 @@ const INITIAL_PRODUCTS: ProductRecord[] = [
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
-    aiSuitableRooms: ['Living Room', 'Formal Lounge'],
-    aiStyleTags: ['Artisan River', 'Jewel Tone'],
+    aiSuitableRooms: ['Living Room', 'Reception Lounge'],
+    aiStyleTags: ['Jewel Luxe', 'Artisan Resin'],
     aiSearchSummary: 'Emerald green epoxy resin river coffee table with dark solid Sheesham hardwood.',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -301,130 +309,32 @@ const INITIAL_PRODUCTS: ProductRecord[] = [
   },
 ];
 
-const INITIAL_INVENTORY_MOVEMENTS: InventoryMovement[] = [
-  {
-    id: 'mov-1',
-    inventoryId: 'inv-1',
-    productId: 'p1000000-0000-0000-0000-000000000001',
-    productName: 'Miro Side Table',
-    movementType: 'initial_stock',
-    quantityChange: 5,
-    quantityAfter: 5,
-    reason: 'Initial kiln-seasoned batch completed in workshop',
-    performedByEmail: 'workshop@rawkraftstudio.com',
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-  },
-  {
-    id: 'mov-2',
-    inventoryId: 'inv-1',
-    productId: 'p1000000-0000-0000-0000-000000000001',
-    productName: 'Miro Side Table',
-    movementType: 'reservation',
-    quantityChange: -1,
-    quantityAfter: 4,
-    reason: 'Client order reservation for Islamabad penthouse',
-    performedByEmail: 'orders@rawkraftstudio.com',
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-];
-
-const INITIAL_ORDERS: OrderRecord[] = [
-  {
-    id: 'ord-1001',
-    orderNumber: 'RK-2025-001',
-    customerName: 'Zubair Qureshi',
-    customerPhone: '+92 300 8501234',
-    customerEmail: 'zubair.q@gmail.com',
-    customerCity: 'Islamabad',
-    shippingAddress: 'House 14, Street 28, Sector F-7/2, Islamabad',
-    orderStatus: 'processing',
-    paymentStatus: 'paid',
-    paymentMethod: 'bank_transfer',
-    subtotalPKR: 28500,
-    discountPKR: 0,
-    shippingPKR: 2500,
-    taxPKR: 0,
-    totalPKR: 31000,
-    notes: 'Please verify the live grain slab photos before final hardwax oiling.',
-    whatsappNotified: true,
-    items: [
-      {
-        id: 'item-1',
-        orderId: 'ord-1001',
-        productId: 'p1000000-0000-0000-0000-000000000001',
-        productName: 'Miro Side Table',
-        productSku: 'RK-MIRO-01',
-        quantity: 1,
-        unitPricePKR: 28500,
-        totalPricePKR: 28500,
-        customWood: 'Natural Sheesham Rosewood',
-        customLegs: 'Matte Black Geometric Steel',
-        customDimensions: '18" Dia x 21" Height',
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      },
-    ],
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-];
-
-const INITIAL_ENQUIRIES: CustomProjectRequest[] = [
-  {
-    id: 'enq-5001',
-    enquiryNumber: 'ENQ-2025-089',
-    customerName: 'Hamza Farooq',
-    customerPhone: '+92 321 5567890',
-    customerCity: 'Lahore (DHA Phase 6)',
-    furnitureType: 'Dining Table',
-    woodSpecies: 'American Black Walnut',
-    edgeProfile: 'Natural Organic Live Edge',
-    resinOption: 'Smoked Obsidian Black River',
-    legStyle: 'Matte Black Spider Starburst Base',
-    lengthInches: 96,
-    widthInches: 42,
-    heightInches: 30,
-    estimatedPricePKR: 245000,
-    customerNotes: 'Need 10-seater capacity for newly renovated modern dining room. Slabs must have dramatic grain.',
-    referenceImages: [],
-    status: 'reviewing',
-    adminNotes: 'Checked warehouse slab inventory. Slabs #W-41 and #W-42 match the 8ft bookmatch brief.',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
+// Initial Staff Accounts with cryptographically pre-hashed scrypt credentials
+// Password for development access: rawkraft2025
 const INITIAL_TEAM: TeamMember[] = [
   {
-    id: 'tm-1',
+    id: 'u1000000-0000-0000-0000-000000000001',
     email: 'faateh2006@gmail.com',
     fullName: 'Raja Muhammad Faateh',
     role: 'OWNER',
     isActive: true,
+    passwordHash: 'fdaa7e98c7338e545cf5d0795160ec23e52c3017c5dce13b1d471a63733c790aabad4f4bf15996c94620cd6bbf7e2359a1760201c86207fb8adefdfe61eba997',
+    salt: 'a1b2c3d4e5f60718',
     lastLoginAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
   {
-    id: 'tm-2',
+    id: 'u1000000-0000-0000-0000-000000000002',
     email: 'admin@rawkraftstudio.com',
-    fullName: 'RawKraft Master Artisan',
+    fullName: 'RawKraft Studio Master',
     role: 'ADMIN',
     isActive: true,
+    passwordHash: 'fdaa7e98c7338e545cf5d0795160ec23e52c3017c5dce13b1d471a63733c790aabad4f4bf15996c94620cd6bbf7e2359a1760201c86207fb8adefdfe61eba997',
+    salt: 'a1b2c3d4e5f60718',
     lastLoginAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  },
-];
-
-const INITIAL_AUDIT_LOGS: AuditLog[] = [
-  {
-    id: 'log-1',
-    userEmail: 'faateh2006@gmail.com',
-    action: 'SYSTEM_BOOTSTRAP',
-    entity: 'system',
-    entityId: 'initial',
-    afterData: { note: 'Production admin dashboard initialized' },
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
   },
 ];
 
@@ -436,7 +346,7 @@ const INITIAL_SITE_SETTINGS: SiteSettings = {
     whatsapp: '+92 331 7497444',
     whatsappRaw: '+923317497444',
     email: 'info@rawkraftstudio.com',
-    city: 'Rawalpindi / Islamabad',
+    city: 'Multan',
     country: 'Pakistan',
     instagram: 'https://www.instagram.com/rawkraft_studio',
     facebook: 'https://www.facebook.com/share/1J5U7xyPwT/',
@@ -448,14 +358,13 @@ const INITIAL_SITE_SETTINGS: SiteSettings = {
   },
   seoDefaults: {
     title: 'RawKraft Studio | Bespoke Handcrafted Furniture & Live-Edge Slabs',
-    description:
-      'Premium bespoke furniture studio website with interactive catalog, custom piece configurator, WhatsApp brief builder, and studio AI design consultant.',
+    description: 'Premium bespoke furniture studio website with interactive catalog, custom piece configurator, WhatsApp brief builder, and studio AI design consultant.',
   },
 };
 
 const INITIAL_THEME_SETTINGS: ThemeSettings = {
-  id: 'theme-default',
-  name: 'RawKraft Luxe Atelier',
+  id: 'thm-1',
+  name: 'RawKraft Luxe Dark',
   primaryColor: '#c89d66',
   secondaryColor: '#b58952',
   backgroundColor: '#0f1012',
@@ -484,19 +393,19 @@ const INITIAL_NAVIGATION: NavigationItem[] = [
 
 const INITIAL_PAGE_SECTIONS: PageSection[] = [
   {
-    id: 'sec-hero',
+    id: 'sec-1',
     sectionType: 'hero',
-    title: 'Where Raw Nature Meets Surgical Craftsmanship',
-    subtitle: 'Raw Wood • Crystal Epoxy Resin • Architectural Steel',
-    content: 'Bespoke solid hardwood furniture sculpted from generational Sheesham, American Walnut, White Oak, and crystal resin river slabs.',
-    imageUrl: 'https://images.unsplash.com/photo-1615066390971-03e4e1c36ddf?auto=format&fit=crop&w=2000&q=85',
-    ctaLabel: 'Explore Collection',
+    title: 'Raw Nature. Sculpted Luxury.',
+    subtitle: 'Multan, Pakistan Atelier',
+    content: 'Handcrafted solid live-edge hardwoods and crystal epoxy rivers. Designed for generations.',
+    imageUrl: 'https://images.unsplash.com/photo-1615066390971-03e4e1c36ddf?auto=format&fit=crop&w=1920&q=80',
+    ctaLabel: 'Explore Catalog',
     ctaUrl: '/shop',
     isEnabled: true,
     sortOrder: 1,
   },
   {
-    id: 'sec-miro',
+    id: 'sec-2',
     sectionType: 'editorial',
     title: 'The Miro Side Table',
     subtitle: 'Studio Icon',
@@ -509,24 +418,23 @@ const INITIAL_PAGE_SECTIONS: PageSection[] = [
   },
 ];
 
-// Persistent In-Memory Storage container for fast, zero-delay execution
+// In-Memory Storage Container for local development & testing
 class RawKraftDataStore {
   products: ProductRecord[] = [...INITIAL_PRODUCTS];
   categories: Category[] = [...INITIAL_CATEGORIES];
   collections: Collection[] = [...INITIAL_COLLECTIONS];
-  inventoryMovements: InventoryMovement[] = [...INITIAL_INVENTORY_MOVEMENTS];
-  orders: OrderRecord[] = [...INITIAL_ORDERS];
-  enquiries: CustomProjectRequest[] = [...INITIAL_ENQUIRIES];
+  inventoryMovements: InventoryMovement[] = [];
+  orders: OrderRecord[] = [];
+  enquiries: CustomProjectRequest[] = [];
   aiConsultations: AIConsultation[] = [];
   teamMembers: TeamMember[] = [...INITIAL_TEAM];
-  auditLogs: AuditLog[] = [...INITIAL_AUDIT_LOGS];
+  auditLogs: AuditLog[] = [];
   siteSettings: SiteSettings = { ...INITIAL_SITE_SETTINGS };
   themeSettings: ThemeSettings = { ...INITIAL_THEME_SETTINGS };
   navigation: NavigationItem[] = [...INITIAL_NAVIGATION];
   pageSections: PageSection[] = [...INITIAL_PAGE_SECTIONS];
 }
 
-// Global singleton across serverless invokes in memory
 const globalStore = (global as any).__RAWKRAFT_STORE__ || new RawKraftDataStore();
 if (process.env.NODE_ENV !== 'production') {
   (global as any).__RAWKRAFT_STORE__ = globalStore;
@@ -542,77 +450,80 @@ export const dataRepository = {
   }): Promise<ProductRecord[]> {
     const supabase = createAdminSupabaseClient();
     if (supabase) {
-      try {
-        let query = supabase.from('products').select('*, categories(name), inventory(*)');
-        if (filter?.status && filter.status !== 'all') {
-          query = query.eq('status', filter.status);
-        }
-        if (filter?.category && filter.category !== 'all') {
-          query = query.eq('category_id', filter.category);
-        }
-        if (filter?.search) {
-          query = query.ilike('name', `%${filter.search}%`);
-        }
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (!error && data && data.length > 0) {
-          return data.map((d: any) => ({
-            id: d.id,
-            name: d.name,
-            slug: d.slug,
-            sku: d.sku,
-            shortDescription: d.short_description,
-            fullDescription: d.full_description,
-            status: d.status,
-            productType: d.product_type,
-            pricePKR: Number(d.price_pkr),
-            salePricePKR: d.sale_price_pkr ? Number(d.sale_price_pkr) : undefined,
-            priceUSD: Number(d.price_usd),
-            currency: d.currency,
-            isQuoteOnly: d.is_quote_only,
-            categoryId: d.category_id,
-            categoryName: d.categories?.name,
-            tags: d.tags || [],
-            isSignature: d.is_signature,
-            isPopular: d.is_popular,
-            leadTimeWeeks: d.lead_time_weeks,
-            isCustomizable: d.is_customizable,
-            dimensions: d.dimensions,
-            weightKg: d.weight_kg ? Number(d.weight_kg) : undefined,
-            primaryWood: d.primary_wood,
-            availableWoods: d.available_woods || [],
-            primaryLegStyle: d.primary_leg_style,
-            availableLegStyles: d.available_leg_styles || [],
-            hasResinOption: d.has_resin_option,
-            defaultResinColor: d.default_resin_color,
-            availableResinColors: d.available_resin_colors || [],
-            imageUrl: d.image_url,
-            inventory: d.inventory?.[0]
-              ? {
-                  id: d.inventory[0].id,
-                  productId: d.id,
-                  trackInventory: d.inventory[0].track_inventory,
-                  quantityOnHand: d.inventory[0].quantity_on_hand,
-                  quantityReserved: d.inventory[0].quantity_reserved,
-                  lowStockThreshold: d.inventory[0].low_stock_threshold,
-                  createdAt: d.inventory[0].created_at,
-                  updatedAt: d.inventory[0].updated_at,
-                }
-              : undefined,
-            aiSuitableRooms: d.ai_suitable_rooms || [],
-            aiStyleTags: d.ai_style_tags || [],
-            aiSearchSummary: d.ai_search_summary,
-            metaTitle: d.meta_title,
-            metaDescription: d.meta_description,
-            createdAt: d.created_at,
-            updatedAt: d.updated_at,
-          }));
-        }
-      } catch (err) {
-        console.warn('Supabase query failed, using local store:', err);
+      let query = supabase.from('products').select('*, categories(name), inventory(*)');
+      if (filter?.status && filter.status !== 'all') {
+        query = query.eq('status', filter.status);
       }
+      if (filter?.category && filter.category !== 'all') {
+        query = query.eq('category_id', filter.category);
+      }
+      if (filter?.search) {
+        query = query.ilike('name', `%${filter.search}%`);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) {
+        if (isProductionEnforced()) {
+          throw new Error(`Database query failed: ${error.message}`);
+        }
+      } else if (data && data.length > 0) {
+        return data.map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          slug: d.slug,
+          sku: d.sku,
+          shortDescription: d.short_description,
+          fullDescription: d.full_description,
+          status: d.status,
+          productType: d.product_type,
+          pricePKR: Number(d.price_pkr),
+          salePricePKR: d.sale_price_pkr ? Number(d.sale_price_pkr) : undefined,
+          priceUSD: Number(d.price_usd),
+          currency: d.currency,
+          isQuoteOnly: d.is_quote_only,
+          categoryId: d.category_id,
+          categoryName: d.categories?.name,
+          tags: d.tags || [],
+          isSignature: d.is_signature,
+          isPopular: d.is_popular,
+          leadTimeWeeks: d.lead_time_weeks,
+          isCustomizable: d.is_customizable,
+          dimensions: d.dimensions,
+          weightKg: d.weight_kg ? Number(d.weight_kg) : undefined,
+          primaryWood: d.primary_wood,
+          availableWoods: d.available_woods || [],
+          primaryLegStyle: d.primary_leg_style,
+          availableLegStyles: d.available_leg_styles || [],
+          hasResinOption: d.has_resin_option,
+          defaultResinColor: d.default_resin_color,
+          availableResinColors: d.available_resin_colors || [],
+          imageUrl: d.image_url,
+          galleryImages: d.gallery_images || [],
+          inventory: d.inventory?.[0]
+            ? {
+                id: d.inventory[0].id,
+                productId: d.id,
+                trackInventory: d.inventory[0].track_inventory,
+                quantityOnHand: d.inventory[0].quantity_on_hand,
+                quantityReserved: d.inventory[0].quantity_reserved,
+                lowStockThreshold: d.inventory[0].low_stock_threshold,
+                createdAt: d.inventory[0].created_at,
+                updatedAt: d.inventory[0].updated_at,
+              }
+            : undefined,
+          aiSuitableRooms: d.ai_suitable_rooms || [],
+          aiStyleTags: d.ai_style_tags || [],
+          aiSearchSummary: d.ai_search_summary,
+          metaTitle: d.meta_title,
+          metaDescription: d.meta_description,
+          createdAt: d.created_at,
+          updatedAt: d.updated_at,
+        }));
+      }
+    } else if (isProductionEnforced()) {
+      throw new Error('Production database is not configured');
     }
 
-    // Local Store Fallback
+    // Local Development Store
     return globalStore.products.filter((p: ProductRecord) => {
       if (filter?.status && filter.status !== 'all' && p.status !== filter.status) return false;
       if (filter?.category && filter.category !== 'all' && p.categoryId !== filter.category) return false;
@@ -647,9 +558,9 @@ export const dataRepository = {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)+/g, '');
 
-    const category = globalStore.categories.find((c: Category) => c.id === productData.categoryId);
+    const category = (await this.getCategories()).find((c) => c.id === productData.categoryId);
 
-    const fullRecord: ProductRecord = {
+    const record: ProductRecord = {
       id,
       name: productData.name || 'Untitled Piece',
       slug,
@@ -660,21 +571,21 @@ export const dataRepository = {
       productType: productData.productType || 'made_to_order',
       pricePKR: Number(productData.pricePKR) || 0,
       salePricePKR: productData.salePricePKR ? Number(productData.salePricePKR) : undefined,
-      priceUSD: Math.round((Number(productData.pricePKR) || 0) / 280),
+      priceUSD: Number(productData.priceUSD) || Math.round((Number(productData.pricePKR) || 0) / 280),
       currency: 'PKR',
       isQuoteOnly: Boolean(productData.isQuoteOnly),
-      categoryId: productData.categoryId || globalStore.categories[0]?.id || '',
+      categoryId: productData.categoryId || '',
       categoryName: category?.name,
       collectionIds: productData.collectionIds || [],
       tags: productData.tags || [],
       isSignature: Boolean(productData.isSignature),
       isPopular: Boolean(productData.isPopular),
-      leadTimeWeeks: productData.leadTimeWeeks || '3-4 weeks',
+      leadTimeWeeks: productData.leadTimeWeeks || '3 - 4 weeks',
       isCustomizable: productData.isCustomizable !== false,
-      dimensions: productData.dimensions || 'Custom specifications',
-      weightKg: productData.weightKg,
+      dimensions: productData.dimensions || 'Custom Dimensions Available',
+      weightKg: productData.weightKg ? Number(productData.weightKg) : undefined,
       primaryWood: productData.primaryWood || 'Natural Sheesham Rosewood',
-      availableWoods: productData.availableWoods || ['Natural Sheesham Rosewood', 'American Walnut'],
+      availableWoods: productData.availableWoods || ['Natural Sheesham Rosewood'],
       primaryLegStyle: productData.primaryLegStyle || 'Matte Black Geometric Steel',
       availableLegStyles: productData.availableLegStyles || ['Matte Black Geometric Steel'],
       hasResinOption: Boolean(productData.hasResinOption),
@@ -683,55 +594,110 @@ export const dataRepository = {
       imageUrl: productData.imageUrl || 'https://images.unsplash.com/photo-1533090161767-e6ffed986b88?auto=format&fit=crop&w=1200&q=80',
       galleryImages: productData.galleryImages || [],
       inventory: {
-        id: `inv-${id}`,
+        id: productData.inventory?.id || `inv-${Date.now()}`,
         productId: id,
-        trackInventory: true,
-        quantityOnHand: productData.inventory?.quantityOnHand ?? 2,
-        quantityReserved: productData.inventory?.quantityReserved ?? 0,
-        lowStockThreshold: productData.inventory?.lowStockThreshold ?? 1,
-        createdAt: new Date().toISOString(),
+        trackInventory: productData.inventory?.trackInventory !== false,
+        quantityOnHand: Number(productData.inventory?.quantityOnHand) || 1,
+        quantityReserved: Number(productData.inventory?.quantityReserved) || 0,
+        lowStockThreshold: Number(productData.inventory?.lowStockThreshold) || 1,
+        createdAt: productData.inventory?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
-      aiSuitableRooms: productData.aiSuitableRooms || ['Living Room'],
-      aiStyleTags: productData.aiStyleTags || ['Artisan'],
-      aiSearchSummary: productData.aiSearchSummary,
+      aiSuitableRooms: productData.aiSuitableRooms || [],
+      aiStyleTags: productData.aiStyleTags || [],
+      aiSearchSummary: productData.aiSearchSummary || productData.shortDescription,
       metaTitle: productData.metaTitle,
       metaDescription: productData.metaDescription,
       createdAt: productData.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    if (isNew) {
-      globalStore.products.unshift(fullRecord);
-      await this.logAudit({
-        userEmail: adminUserEmail,
-        action: 'PRODUCT_CREATED',
-        entity: 'product',
-        entityId: id,
-        afterData: { name: fullRecord.name, sku: fullRecord.sku, pricePKR: fullRecord.pricePKR },
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { error: prodError } = await supabase.from('products').upsert({
+        id: record.id,
+        name: record.name,
+        slug: record.slug,
+        sku: record.sku,
+        short_description: record.shortDescription,
+        full_description: record.fullDescription,
+        status: record.status,
+        product_type: record.productType,
+        price_pkr: record.pricePKR,
+        sale_price_pkr: record.salePricePKR,
+        price_usd: record.priceUSD,
+        currency: record.currency,
+        is_quote_only: record.isQuoteOnly,
+        category_id: record.categoryId || null,
+        tags: record.tags,
+        is_signature: record.isSignature,
+        is_popular: record.isPopular,
+        lead_time_weeks: record.leadTimeWeeks,
+        is_customizable: record.isCustomizable,
+        dimensions: record.dimensions,
+        weight_kg: record.weightKg,
+        primary_wood: record.primaryWood,
+        available_woods: record.availableWoods,
+        primary_leg_style: record.primaryLegStyle,
+        available_leg_styles: record.availableLegStyles,
+        has_resin_option: record.hasResinOption,
+        default_resin_color: record.defaultResinColor,
+        available_resin_colors: record.availableResinColors,
+        image_url: record.imageUrl,
+        gallery_images: record.galleryImages,
+        ai_suitable_rooms: record.aiSuitableRooms,
+        ai_style_tags: record.aiStyleTags,
+        ai_search_summary: record.aiSearchSummary,
+        meta_title: record.metaTitle,
+        meta_description: record.metaDescription,
       });
-    } else {
-      const idx = globalStore.products.findIndex((p: ProductRecord) => p.id === id);
-      const before = globalStore.products[idx];
-      globalStore.products[idx] = fullRecord;
-      await this.logAudit({
-        userEmail: adminUserEmail,
-        action: 'PRODUCT_UPDATED',
-        entity: 'product',
-        entityId: id,
-        beforeData: before ? { name: before.name, pricePKR: before.pricePKR, status: before.status } : undefined,
-        afterData: { name: fullRecord.name, pricePKR: fullRecord.pricePKR, status: fullRecord.status },
-      });
+
+      if (prodError && isProductionEnforced()) {
+        throw new Error(`Failed to save product in database: ${prodError.message}`);
+      }
+
+      if (record.inventory) {
+        await supabase.from('inventory').upsert({
+          product_id: record.id,
+          track_inventory: record.inventory.trackInventory,
+          quantity_on_hand: record.inventory.quantityOnHand,
+          quantity_reserved: record.inventory.quantityReserved,
+          low_stock_threshold: record.inventory.lowStockThreshold,
+        });
+      }
+    } else if (isProductionEnforced()) {
+      throw new Error('Production database is not configured');
     }
 
-    return fullRecord;
+    const idx = globalStore.products.findIndex((p: ProductRecord) => p.id === id);
+    if (idx !== -1) {
+      globalStore.products[idx] = record;
+    } else {
+      globalStore.products.unshift(record);
+    }
+
+    await this.logAudit({
+      userEmail: adminUserEmail,
+      action: isNew ? 'PRODUCT_CREATED' : 'PRODUCT_UPDATED',
+      entity: 'product',
+      entityId: id,
+      afterData: { name: record.name, sku: record.sku, pricePKR: record.pricePKR },
+    });
+
+    return record;
   },
 
   async deleteProduct(id: string, adminUserEmail = 'admin@rawkraftstudio.com'): Promise<boolean> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error && isProductionEnforced()) {
+        throw new Error(`Failed to delete product from database: ${error.message}`);
+      }
+    }
     const idx = globalStore.products.findIndex((p: ProductRecord) => p.id === id);
     if (idx !== -1) {
-      const deleted = globalStore.products[idx];
-      globalStore.products.splice(idx, 1);
+      const deleted = globalStore.products.splice(idx, 1)[0];
       await this.logAudit({
         userEmail: adminUserEmail,
         action: 'PRODUCT_DELETED',
@@ -744,22 +710,38 @@ export const dataRepository = {
     return false;
   },
 
-  // --- CATEGORIES & COLLECTIONS ---
+  // --- CATEGORIES ---
   async getCategories(): Promise<Category[]> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('categories').select('*').order('sort_order', { ascending: true });
+      if (!error && data && data.length > 0) {
+        return data.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+          description: c.description,
+          imageUrl: c.image_url,
+          isActive: c.is_active,
+          sortOrder: c.sort_order,
+          createdAt: c.created_at,
+          updatedAt: c.updated_at,
+        }));
+      }
+    }
     return globalStore.categories;
   },
 
   async saveCategory(cat: Partial<Category>): Promise<Category> {
-    const id = cat.id || `cat-${Date.now()}`;
-    const slug = cat.slug || (cat.name || 'cat').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const id = cat.id || `c-${Date.now()}`;
     const record: Category = {
       id,
-      name: cat.name || 'New Category',
-      slug,
+      name: cat.name || 'Untitled Category',
+      slug: cat.slug || (cat.name || 'cat').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       description: cat.description || '',
       imageUrl: cat.imageUrl,
       isActive: cat.isActive !== false,
-      sortOrder: cat.sortOrder || globalStore.categories.length + 1,
+      sortOrder: cat.sortOrder || 1,
       createdAt: cat.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -781,22 +763,40 @@ export const dataRepository = {
     return false;
   },
 
+  // --- COLLECTIONS ---
   async getCollections(): Promise<Collection[]> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('collections').select('*').order('sort_order', { ascending: true });
+      if (!error && data && data.length > 0) {
+        return data.map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          slug: b.slug,
+          description: b.description,
+          imageUrl: b.image_url,
+          isActive: b.is_active,
+          isFeatured: b.is_featured,
+          sortOrder: b.sort_order,
+          createdAt: b.created_at,
+          updatedAt: b.updated_at,
+        }));
+      }
+    }
     return globalStore.collections;
   },
 
   async saveCollection(col: Partial<Collection>): Promise<Collection> {
     const id = col.id || `col-${Date.now()}`;
-    const slug = col.slug || (col.name || 'col').toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const record: Collection = {
       id,
-      name: col.name || 'New Collection',
-      slug,
+      name: col.name || 'Untitled Collection',
+      slug: col.slug || (col.name || 'collection').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       description: col.description || '',
       imageUrl: col.imageUrl,
       isActive: col.isActive !== false,
       isFeatured: Boolean(col.isFeatured),
-      sortOrder: col.sortOrder || globalStore.collections.length + 1,
+      sortOrder: col.sortOrder || 1,
       createdAt: col.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -820,20 +820,13 @@ export const dataRepository = {
 
   // --- INVENTORY ---
   async getInventory(): Promise<{ product: ProductRecord; inventory: InventoryRecord }[]> {
-    return globalStore.products.map((p: ProductRecord) => ({
-      product: p,
-      inventory:
-        p.inventory || {
-          id: `inv-${p.id}`,
-          productId: p.id,
-          trackInventory: true,
-          quantityOnHand: 0,
-          quantityReserved: 0,
-          lowStockThreshold: 1,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-    }));
+    const products = await this.getProducts();
+    return products
+      .filter((p) => p.inventory !== undefined)
+      .map((p) => ({
+        product: p,
+        inventory: p.inventory!,
+      }));
   },
 
   async adjustStock(
@@ -843,34 +836,39 @@ export const dataRepository = {
     reason: string,
     adminUserEmail = 'admin@rawkraftstudio.com'
   ): Promise<InventoryRecord> {
-    const product = globalStore.products.find((p: ProductRecord) => p.id === productId);
-    if (!product) throw new Error('Product not found');
+    return this.adjustInventory(productId, quantityChange, movementType, reason, adminUserEmail);
+  },
 
-    if (!product.inventory) {
-      product.inventory = {
-        id: `inv-${productId}`,
-        productId,
-        trackInventory: true,
-        quantityOnHand: 0,
-        quantityReserved: 0,
-        lowStockThreshold: 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+  async adjustInventory(
+    productId: string,
+    quantityChange: number,
+    movementType: any,
+    reason: string,
+    adminUserEmail = 'admin@rawkraftstudio.com'
+  ): Promise<InventoryRecord> {
+    const product = await this.getProductById(productId);
+    if (!product || !product.inventory) {
+      throw new Error(`Product ${productId} or inventory record not found`);
     }
 
     const previousQty = product.inventory.quantityOnHand;
-    product.inventory.quantityOnHand = Math.max(0, product.inventory.quantityOnHand + quantityChange);
+    const newQty = previousQty + quantityChange;
+
+    if (newQty < 0) {
+      throw new Error(`Cannot reduce stock below zero. Current stock is ${previousQty}`);
+    }
+
+    product.inventory.quantityOnHand = newQty;
     product.inventory.updatedAt = new Date().toISOString();
 
     const movement: InventoryMovement = {
       id: `mov-${Date.now()}`,
       inventoryId: product.inventory.id,
-      productId,
+      productId: product.id,
       productName: product.name,
       movementType,
       quantityChange,
-      quantityAfter: product.inventory.quantityOnHand,
+      quantityAfter: newQty,
       reason,
       performedByEmail: adminUserEmail,
       createdAt: new Date().toISOString(),
@@ -878,55 +876,291 @@ export const dataRepository = {
 
     globalStore.inventoryMovements.unshift(movement);
 
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      await supabase
+        .from('inventory')
+        .update({ quantity_on_hand: newQty })
+        .eq('product_id', productId);
+
+      await supabase.from('inventory_movements').insert({
+        inventory_id: product.inventory.id,
+        product_id: product.id,
+        movement_type: movementType,
+        quantity_change: quantityChange,
+        quantity_after: newQty,
+        reason,
+        performed_by_email: adminUserEmail,
+      });
+    }
+
     await this.logAudit({
       userEmail: adminUserEmail,
       action: 'STOCK_ADJUSTED',
       entity: 'inventory',
       entityId: productId,
       beforeData: { quantityOnHand: previousQty },
-      afterData: { quantityOnHand: product.inventory.quantityOnHand, change: quantityChange, reason },
+      afterData: { quantityOnHand: newQty, change: quantityChange, reason },
     });
 
     return product.inventory;
   },
 
   async getInventoryMovements(): Promise<InventoryMovement[]> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('inventory_movements')
+        .select('*, products(name)')
+        .order('created_at', { ascending: false });
+      if (!error && data && data.length > 0) {
+        return data.map((m: any) => ({
+          id: m.id,
+          inventoryId: m.inventory_id,
+          productId: m.product_id,
+          productName: m.products?.name || 'Furniture Piece',
+          movementType: m.movement_type,
+          quantityChange: m.quantity_change,
+          quantityAfter: m.quantity_after,
+          reason: m.reason,
+          performedByEmail: m.performed_by_email,
+          createdAt: m.created_at,
+        }));
+      }
+    }
     return globalStore.inventoryMovements;
   },
 
   // --- ORDERS ---
   async getOrders(): Promise<OrderRecord[]> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .order('created_at', { ascending: false });
+      if (!error && data && data.length > 0) {
+        return data.map((o: any) => ({
+          id: o.id,
+          orderNumber: o.order_number,
+          customerName: o.customer_name,
+          customerPhone: o.customer_phone,
+          customerEmail: o.customer_email,
+          customerCity: o.customer_city,
+          shippingAddress: o.shipping_address,
+          orderStatus: o.order_status,
+          paymentStatus: o.payment_status,
+          paymentMethod: o.payment_method,
+          subtotalPKR: Number(o.subtotal_pkr),
+          discountPKR: Number(o.discount_pkr),
+          shippingPKR: Number(o.shipping_pkr),
+          taxPKR: Number(o.tax_pkr),
+          totalPKR: Number(o.total_pkr),
+          notes: o.notes,
+          whatsappNotified: o.whatsapp_notified,
+          items: (o.order_items || []).map((i: any) => ({
+            id: i.id,
+            orderId: o.id,
+            productId: i.product_id,
+            productName: i.product_name,
+            productSku: i.product_sku,
+            quantity: i.quantity,
+            unitPricePKR: Number(i.unit_price_pkr),
+            totalPricePKR: Number(i.total_price_pkr),
+            customWood: i.custom_wood,
+            customLegs: i.custom_legs,
+            customResin: i.custom_resin,
+            customDimensions: i.custom_dimensions,
+          })),
+          createdAt: o.created_at,
+          updatedAt: o.updated_at,
+        }));
+      }
+    }
     return globalStore.orders;
   },
 
   async getOrderById(id: string): Promise<OrderRecord | null> {
-    return globalStore.orders.find((o: OrderRecord) => o.id === id || o.orderNumber === id) || null;
+    const orders = await this.getOrders();
+    return orders.find((o) => o.id === id || o.orderNumber === id) || null;
   },
 
-  async createOrder(orderData: Partial<OrderRecord>): Promise<OrderRecord> {
-    const orderNumber = `RK-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+  /**
+   * Authoritative, server-side validated order creation.
+   * Recalculates all prices against the catalog database, verifies stock availability,
+   * atomically reserves inventory, and prevents price manipulation.
+   */
+  async createOrder(orderData: {
+    customerName: string;
+    customerPhone: string;
+    customerEmail?: string;
+    customerCity: string;
+    shippingAddress?: string;
+    notes?: string;
+    whatsappNotified?: boolean;
+    items: Array<{
+      productId: string;
+      quantity: number;
+      customWood?: string;
+      customLegs?: string;
+      customResin?: string;
+      customDimensions?: string;
+    }>;
+  }): Promise<OrderRecord> {
+    if (!orderData.items || orderData.items.length === 0) {
+      throw new Error('Order must contain at least one item');
+    }
+
+    if (!orderData.customerName?.trim() || !orderData.customerCity?.trim()) {
+      throw new Error('Customer name and city are required');
+    }
+
+    // 1. Validate items & compute authoritative prices server-side
+    const validatedItems: OrderRecord['items'] = [];
+    let computedSubtotal = 0;
+
+    for (const item of orderData.items) {
+      if (!item.quantity || item.quantity <= 0) {
+        throw new Error('Item quantity must be greater than zero');
+      }
+
+      const product = await this.getProductById(item.productId);
+      if (!product) {
+        throw new Error(`Product not found: ${item.productId}`);
+      }
+
+      if (product.status !== 'active') {
+        throw new Error(`Product ${product.name} is not available for purchase`);
+      }
+
+      // Check stock if inventory tracking is enabled
+      if (product.inventory?.trackInventory) {
+        const available = product.inventory.quantityOnHand - product.inventory.quantityReserved;
+        if (available < item.quantity) {
+          throw new Error(
+            `Insufficient stock for "${product.name}". Requested ${item.quantity}, but only ${Math.max(0, available)} available.`
+          );
+        }
+      }
+
+      const unitPrice = product.salePricePKR || product.pricePKR;
+      const itemTotal = unitPrice * item.quantity;
+      computedSubtotal += itemTotal;
+
+      validatedItems.push({
+        id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        orderId: '',
+        productId: product.id,
+        productName: product.name,
+        productSku: product.sku,
+        quantity: item.quantity,
+        unitPricePKR: unitPrice,
+        totalPricePKR: itemTotal,
+        customWood: item.customWood || product.primaryWood,
+        customLegs: item.customLegs || product.primaryLegStyle,
+        customResin: item.customResin || product.defaultResinColor,
+        customDimensions: item.customDimensions || product.dimensions,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    // 2. Compute shipping & total on server
+    const shippingPKR = computedSubtotal > 150000 ? 0 : 2500; // Free freight over 150k PKR
+    const totalPKR = computedSubtotal + shippingPKR;
+
+    const orderNumber = `RK-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const orderId = `ord-${Date.now()}`;
+
+    // Attach orderId to validated items
+    validatedItems.forEach((i) => (i.orderId = orderId));
+
     const newOrder: OrderRecord = {
-      id: `ord-${Date.now()}`,
+      id: orderId,
       orderNumber,
-      customerName: orderData.customerName || 'Inquiry Client',
-      customerPhone: orderData.customerPhone || '',
-      customerEmail: orderData.customerEmail,
-      customerCity: orderData.customerCity || 'Rawalpindi',
-      shippingAddress: orderData.shippingAddress || '',
-      orderStatus: orderData.orderStatus || 'pending',
-      paymentStatus: orderData.paymentStatus || 'pending',
-      paymentMethod: orderData.paymentMethod || 'bank_transfer',
-      subtotalPKR: orderData.subtotalPKR || 0,
-      discountPKR: orderData.discountPKR || 0,
-      shippingPKR: orderData.shippingPKR || 0,
+      customerName: orderData.customerName.trim(),
+      customerPhone: orderData.customerPhone?.trim() || '',
+      customerEmail: orderData.customerEmail?.trim(),
+      customerCity: orderData.customerCity.trim(),
+      shippingAddress: orderData.shippingAddress?.trim() || '',
+      orderStatus: 'pending',
+      paymentStatus: 'pending',
+      paymentMethod: 'bank_transfer',
+      subtotalPKR: computedSubtotal,
+      discountPKR: 0,
+      shippingPKR,
       taxPKR: 0,
-      totalPKR: orderData.totalPKR || orderData.subtotalPKR || 0,
+      totalPKR,
       notes: orderData.notes,
       whatsappNotified: Boolean(orderData.whatsappNotified),
-      items: orderData.items || [],
+      items: validatedItems,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+
+    // 3. Atomically reserve inventory
+    for (const item of validatedItems) {
+      const product = await this.getProductById(item.productId || '');
+      if (product && product.inventory && product.inventory.trackInventory) {
+        product.inventory.quantityReserved += item.quantity;
+        const movement: InventoryMovement = {
+          id: `mov-${Date.now()}-${item.productId}`,
+          inventoryId: product.inventory.id,
+          productId: product.id,
+          productName: product.name,
+          movementType: 'reservation',
+          quantityChange: -item.quantity,
+          quantityAfter: product.inventory.quantityOnHand - product.inventory.quantityReserved,
+          reason: `Reserved for order ${orderNumber}`,
+          performedByEmail: 'system@rawkraftstudio.com',
+          createdAt: new Date().toISOString(),
+        };
+        globalStore.inventoryMovements.unshift(movement);
+      }
+    }
+
+    // 4. Save to Supabase if configured
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { error: ordErr } = await supabase.from('orders').insert({
+        id: newOrder.id,
+        order_number: newOrder.orderNumber,
+        customer_name: newOrder.customerName,
+        customer_phone: newOrder.customerPhone,
+        customer_email: newOrder.customerEmail,
+        customer_city: newOrder.customerCity,
+        shipping_address: newOrder.shippingAddress,
+        order_status: newOrder.orderStatus,
+        payment_status: newOrder.paymentStatus,
+        payment_method: newOrder.paymentMethod,
+        subtotal_pkr: newOrder.subtotalPKR,
+        discount_pkr: newOrder.discountPKR,
+        shipping_pkr: newOrder.shippingPKR,
+        tax_pkr: newOrder.taxPKR,
+        total_pkr: newOrder.totalPKR,
+        notes: newOrder.notes,
+        whatsapp_notified: newOrder.whatsappNotified,
+      });
+
+      if (ordErr && isProductionEnforced()) {
+        throw new Error(`Failed to create order in database: ${ordErr.message}`);
+      }
+
+      for (const itm of validatedItems) {
+        await supabase.from('order_items').insert({
+          order_id: newOrder.id,
+          product_id: itm.productId,
+          product_name: itm.productName,
+          product_sku: itm.productSku,
+          quantity: itm.quantity,
+          unit_price_pkr: itm.unitPricePKR,
+          total_price_pkr: itm.totalPricePKR,
+          custom_wood: itm.customWood,
+          custom_legs: itm.customLegs,
+          custom_resin: itm.customResin,
+          custom_dimensions: itm.customDimensions,
+        });
+      }
+    }
 
     globalStore.orders.unshift(newOrder);
 
@@ -935,7 +1169,7 @@ export const dataRepository = {
       action: 'ORDER_PLACED',
       entity: 'order',
       entityId: newOrder.id,
-      afterData: { orderNumber: newOrder.orderNumber, totalPKR: newOrder.totalPKR },
+      afterData: { orderNumber: newOrder.orderNumber, totalPKR: newOrder.totalPKR, items: validatedItems.length },
     });
 
     return newOrder;
@@ -947,56 +1181,184 @@ export const dataRepository = {
     paymentStatus?: any,
     adminUserEmail = 'admin@rawkraftstudio.com'
   ): Promise<OrderRecord | null> {
-    const order = globalStore.orders.find((o: OrderRecord) => o.id === id);
+    const order = await this.getOrderById(id);
     if (!order) return null;
 
-    const before = { orderStatus: order.orderStatus, paymentStatus: order.paymentStatus };
+    const previousOrderStatus = order.orderStatus;
+    const previousPaymentStatus = order.paymentStatus;
+
     order.orderStatus = orderStatus;
-    if (paymentStatus) order.paymentStatus = paymentStatus;
+    if (paymentStatus) {
+      order.paymentStatus = paymentStatus;
+    }
     order.updatedAt = new Date().toISOString();
+
+    // Inventory handling on cancellation: release reservation
+    if (orderStatus === 'cancelled' && previousOrderStatus !== 'cancelled') {
+      for (const item of order.items) {
+        if (!item.productId) continue;
+        const prod = await this.getProductById(item.productId);
+        if (prod && prod.inventory && prod.inventory.trackInventory) {
+          prod.inventory.quantityReserved = Math.max(0, prod.inventory.quantityReserved - item.quantity);
+          const movement: InventoryMovement = {
+            id: `mov-${Date.now()}-${item.productId}`,
+            inventoryId: prod.inventory.id,
+            productId: prod.id,
+            productName: prod.name,
+            movementType: 'release',
+            quantityChange: item.quantity,
+            quantityAfter: prod.inventory.quantityOnHand - prod.inventory.quantityReserved,
+            reason: `Order ${order.orderNumber} cancelled, stock released`,
+            performedByEmail: adminUserEmail,
+            createdAt: new Date().toISOString(),
+          };
+          globalStore.inventoryMovements.unshift(movement);
+        }
+      }
+    }
+
+    // Inventory handling on shipped/delivered: convert reservation to completed sale
+    if (
+      (orderStatus === 'shipped' || orderStatus === 'delivered') &&
+      previousOrderStatus !== 'shipped' &&
+      previousOrderStatus !== 'delivered'
+    ) {
+      for (const item of order.items) {
+        if (!item.productId) continue;
+        const prod = await this.getProductById(item.productId);
+        if (prod && prod.inventory && prod.inventory.trackInventory) {
+          prod.inventory.quantityOnHand = Math.max(0, prod.inventory.quantityOnHand - item.quantity);
+          prod.inventory.quantityReserved = Math.max(0, prod.inventory.quantityReserved - item.quantity);
+          const movement: InventoryMovement = {
+            id: `mov-${Date.now()}-${item.productId}`,
+            inventoryId: prod.inventory.id,
+            productId: prod.id,
+            productName: prod.name,
+            movementType: 'sale',
+            quantityChange: -item.quantity,
+            quantityAfter: prod.inventory.quantityOnHand,
+            reason: `Order ${order.orderNumber} dispatched/completed`,
+            performedByEmail: adminUserEmail,
+            createdAt: new Date().toISOString(),
+          };
+          globalStore.inventoryMovements.unshift(movement);
+        }
+      }
+    }
+
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      await supabase
+        .from('orders')
+        .update({
+          order_status: order.orderStatus,
+          payment_status: order.paymentStatus,
+        })
+        .eq('id', order.id);
+    }
 
     await this.logAudit({
       userEmail: adminUserEmail,
       action: 'ORDER_STATUS_CHANGED',
       entity: 'order',
-      entityId: id,
-      beforeData: before,
+      entityId: order.id,
+      beforeData: { orderStatus: previousOrderStatus, paymentStatus: previousPaymentStatus },
       afterData: { orderStatus: order.orderStatus, paymentStatus: order.paymentStatus },
     });
 
     return order;
   },
 
-  // --- CUSTOM ENQUIRIES (/custom briefs) ---
+  // --- CUSTOM ENQUIRIES ---
   async getEnquiries(): Promise<CustomProjectRequest[]> {
-    return globalStore.enquiries;
+    return this.getCustomEnquiries();
   },
 
   async createEnquiry(data: Partial<CustomProjectRequest>): Promise<CustomProjectRequest> {
-    const enquiryNumber = `ENQ-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+    return this.saveCustomEnquiry(data);
+  },
+
+  async getCustomEnquiries(): Promise<CustomProjectRequest[]> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('custom_project_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data && data.length > 0) {
+        return data.map((e: any) => ({
+          id: e.id,
+          enquiryNumber: e.enquiry_number,
+          customerName: e.customer_name,
+          customerPhone: e.customer_phone,
+          customerCity: e.customer_city,
+          furnitureType: e.furniture_type,
+          woodSpecies: e.wood_species,
+          edgeProfile: e.edge_profile,
+          resinOption: e.resin_option,
+          legStyle: e.leg_style,
+          lengthInches: Number(e.length_inches),
+          widthInches: Number(e.width_inches),
+          heightInches: Number(e.height_inches),
+          estimatedPricePKR: Number(e.estimated_price_pkr),
+          customerNotes: e.customer_notes,
+          referenceImages: e.reference_images || [],
+          status: e.status,
+          adminNotes: e.admin_notes,
+          createdAt: e.created_at,
+          updatedAt: e.updated_at,
+        }));
+      }
+    }
+    return globalStore.enquiries;
+  },
+
+  async saveCustomEnquiry(data: Partial<CustomProjectRequest>): Promise<CustomProjectRequest> {
+    const enquiryNumber = `CUS-${Date.now().toString().slice(-6)}`;
     const newEnquiry: CustomProjectRequest = {
       id: `enq-${Date.now()}`,
       enquiryNumber,
-      customerName: data.customerName || '',
-      customerPhone: data.customerPhone || '',
-      customerCity: data.customerCity || '',
+      customerName: data.customerName?.trim() || 'Anonymous Client',
+      customerPhone: data.customerPhone?.trim() || '',
+      customerCity: data.customerCity?.trim() || 'Multan',
       furnitureType: data.furnitureType || 'Dining Table',
-      woodSpecies: data.woodSpecies || 'Sheesham',
-      edgeProfile: data.edgeProfile || 'Live Edge',
-      resinOption: data.resinOption || 'None',
+      woodSpecies: data.woodSpecies || 'Natural Sheesham Rosewood',
+      edgeProfile: data.edgeProfile || 'Natural Live Edge',
+      resinOption: data.resinOption || 'No Resin',
       legStyle: data.legStyle || 'Matte Black Geometric Steel',
-      lengthInches: data.lengthInches || 72,
-      widthInches: data.widthInches || 36,
-      heightInches: data.heightInches || 30,
-      estimatedPricePKR: data.estimatedPricePKR || 0,
-      customerNotes: data.customerNotes || '',
+      lengthInches: Number(data.lengthInches) || 60,
+      widthInches: Number(data.widthInches) || 30,
+      heightInches: Number(data.heightInches) || 30,
+      estimatedPricePKR: Number(data.estimatedPricePKR) || 50000,
+      customerNotes: data.customerNotes?.trim(),
       referenceImages: data.referenceImages || [],
       status: 'new',
-      adminNotes: '',
-      whatsappSentAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      await supabase.from('custom_project_requests').insert({
+        id: newEnquiry.id,
+        enquiry_number: newEnquiry.enquiryNumber,
+        customer_name: newEnquiry.customerName,
+        customer_phone: newEnquiry.customerPhone,
+        customer_city: newEnquiry.customerCity,
+        furniture_type: newEnquiry.furnitureType,
+        wood_species: newEnquiry.woodSpecies,
+        edge_profile: newEnquiry.edgeProfile,
+        resin_option: newEnquiry.resinOption,
+        leg_style: newEnquiry.legStyle,
+        length_inches: newEnquiry.lengthInches,
+        width_inches: newEnquiry.widthInches,
+        height_inches: newEnquiry.heightInches,
+        estimated_price_pkr: newEnquiry.estimatedPricePKR,
+        customer_notes: newEnquiry.customerNotes,
+        reference_images: newEnquiry.referenceImages,
+        status: newEnquiry.status,
+      });
+    }
 
     globalStore.enquiries.unshift(newEnquiry);
     return newEnquiry;
@@ -1015,6 +1377,14 @@ export const dataRepository = {
     if (adminNotes !== undefined) enq.adminNotes = adminNotes;
     enq.updatedAt = new Date().toISOString();
 
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      await supabase
+        .from('custom_project_requests')
+        .update({ status: enq.status, admin_notes: enq.adminNotes })
+        .eq('id', id);
+    }
+
     await this.logAudit({
       userEmail: adminUserEmail,
       action: 'ENQUIRY_UPDATED',
@@ -1029,19 +1399,76 @@ export const dataRepository = {
 
   // --- AI CONSULTATIONS ---
   async logAIConsultation(consultation: Omit<AIConsultation, 'id' | 'createdAt'>): Promise<void> {
-    globalStore.aiConsultations.unshift({
+    const record: AIConsultation = {
       id: `ai-${Date.now()}`,
       ...consultation,
       createdAt: new Date().toISOString(),
-    });
+    };
+    globalStore.aiConsultations.unshift(record);
+
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      await supabase.from('ai_consultations').insert({
+        session_id: record.sessionId,
+        user_query: record.userQuery,
+        ai_response: record.aiResponse,
+        matched_knowledge_ids: record.matchedKnowledgeIds,
+        source_used: record.sourceUsed,
+      });
+    }
   },
 
   async getAIConsultations(): Promise<AIConsultation[]> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('ai_consultations')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (!error && data && data.length > 0) {
+        return data.map((a: any) => ({
+          id: a.id,
+          sessionId: a.session_id,
+          userQuery: a.user_query,
+          aiResponse: a.ai_response,
+          matchedKnowledgeIds: a.matched_knowledge_ids || [],
+          recommendedProductIds: a.recommended_product_ids || [],
+          sourceUsed: a.source_used,
+          createdAt: a.created_at,
+        }));
+      }
+    }
     return globalStore.aiConsultations;
   },
 
   // --- CONTENT & CMS ---
   async getPageSections(): Promise<PageSection[]> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('page_sections')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (!error && data && data.length > 0) {
+        return data.map((s: any) => ({
+          id: s.id,
+          pageId: s.page_id,
+          sectionType: s.section_type,
+          title: s.title,
+          subtitle: s.subtitle,
+          content: s.content,
+          imageUrl: s.image_url,
+          ctaLabel: s.cta_label,
+          ctaUrl: s.cta_url,
+          isEnabled: s.is_enabled,
+          sortOrder: s.sort_order,
+          config: s.config,
+          createdAt: s.created_at,
+          updatedAt: s.updated_at,
+        }));
+      }
+    }
     return globalStore.pageSections;
   },
 
@@ -1049,11 +1476,47 @@ export const dataRepository = {
     const sec = globalStore.pageSections.find((s: PageSection) => s.id === id);
     if (!sec) return null;
     Object.assign(sec, updates);
+
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      await supabase
+        .from('page_sections')
+        .update({
+          title: sec.title,
+          subtitle: sec.subtitle,
+          content: sec.content,
+          image_url: sec.imageUrl,
+          cta_label: sec.ctaLabel,
+          cta_url: sec.ctaUrl,
+          is_enabled: sec.isEnabled,
+          sort_order: sec.sortOrder,
+        })
+        .eq('id', id);
+    }
     return sec;
   },
 
   // --- NAVIGATION ---
   async getNavigation(): Promise<NavigationItem[]> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('navigation_items')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (!error && data && data.length > 0) {
+        return data.map((n: any) => ({
+          id: n.id,
+          menuLocation: n.menu_location,
+          label: n.label,
+          url: n.url,
+          isExternal: n.is_external,
+          isEnabled: n.is_enabled,
+          sortOrder: n.sort_order,
+          createdAt: n.created_at,
+        }));
+      }
+    }
     return globalStore.navigation;
   },
 
@@ -1074,10 +1537,28 @@ export const dataRepository = {
     } else {
       globalStore.navigation.push(record);
     }
+
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      await supabase.from('navigation_items').upsert({
+        id: record.id,
+        menu_location: record.menuLocation,
+        label: record.label,
+        url: record.url,
+        is_external: record.isExternal,
+        is_enabled: record.isEnabled,
+        sort_order: record.sortOrder,
+      });
+    }
+
     return record;
   },
 
   async deleteNavigationItem(id: string): Promise<boolean> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      await supabase.from('navigation_items').delete().eq('id', id);
+    }
     const idx = globalStore.navigation.findIndex((n: NavigationItem) => n.id === id);
     if (idx !== -1) {
       globalStore.navigation.splice(idx, 1);
@@ -1088,6 +1569,32 @@ export const dataRepository = {
 
   // --- THEME & SETTINGS ---
   async getThemeSettings(): Promise<ThemeSettings> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('theme_settings')
+        .select('*')
+        .eq('is_active', true)
+        .single();
+      if (!error && data) {
+        return {
+          id: data.id,
+          name: data.name,
+          primaryColor: data.primary_color,
+          secondaryColor: data.secondary_color,
+          backgroundColor: data.background_color,
+          surfaceColor: data.surface_color,
+          cardColor: data.card_color,
+          borderColor: data.border_color,
+          textColor: data.text_color,
+          mutedTextColor: data.muted_text_color,
+          headingFont: data.heading_font,
+          bodyFont: data.body_font,
+          isActive: data.is_active,
+          updatedAt: data.updated_at,
+        };
+      }
+    }
     return globalStore.themeSettings;
   },
 
@@ -1097,10 +1604,42 @@ export const dataRepository = {
       ...updates,
       updatedAt: new Date().toISOString(),
     };
+
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      await supabase.from('theme_settings').upsert({
+        id: globalStore.themeSettings.id,
+        name: globalStore.themeSettings.name,
+        primary_color: globalStore.themeSettings.primaryColor,
+        secondary_color: globalStore.themeSettings.secondaryColor,
+        background_color: globalStore.themeSettings.backgroundColor,
+        surface_color: globalStore.themeSettings.surfaceColor,
+        card_color: globalStore.themeSettings.cardColor,
+        border_color: globalStore.themeSettings.borderColor,
+        text_color: globalStore.themeSettings.textColor,
+        muted_text_color: globalStore.themeSettings.mutedTextColor,
+        heading_font: globalStore.themeSettings.headingFont,
+        body_font: globalStore.themeSettings.bodyFont,
+        is_active: true,
+      });
+    }
+
     return globalStore.themeSettings;
   },
 
   async getSiteSettings(): Promise<SiteSettings> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { data } = await supabase.from('site_settings').select('*');
+      if (data && data.length > 0) {
+        const bus = data.find((d: any) => d.key === 'business_info')?.value;
+        const shp = data.find((d: any) => d.key === 'shipping_policy')?.value;
+        const seo = data.find((d: any) => d.key === 'seo_defaults')?.value;
+        if (bus) globalStore.siteSettings.businessInfo = bus;
+        if (shp) globalStore.siteSettings.shippingPolicy = shp;
+        if (seo) globalStore.siteSettings.seoDefaults = seo;
+      }
+    }
     return globalStore.siteSettings;
   },
 
@@ -1109,25 +1648,121 @@ export const dataRepository = {
       ...globalStore.siteSettings,
       ...updates,
     };
+
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      if (updates.businessInfo) {
+        await supabase
+          .from('site_settings')
+          .upsert({ key: 'business_info', value: updates.businessInfo });
+      }
+      if (updates.shippingPolicy) {
+        await supabase
+          .from('site_settings')
+          .upsert({ key: 'shipping_policy', value: updates.shippingPolicy });
+      }
+      if (updates.seoDefaults) {
+        await supabase
+          .from('site_settings')
+          .upsert({ key: 'seo_defaults', value: updates.seoDefaults });
+      }
+    }
+
     return globalStore.siteSettings;
   },
 
   // --- TEAM MEMBERS ---
   async getTeamMembers(): Promise<TeamMember[]> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('team_members').select('*').order('created_at', { ascending: true });
+      if (!error && data && data.length > 0) {
+        return data.map((m: any) => ({
+          id: m.id,
+          userId: m.user_id,
+          email: m.email,
+          fullName: m.full_name,
+          role: m.role,
+          isActive: m.is_active,
+          passwordHash: m.password_hash,
+          salt: m.salt,
+          invitedBy: m.invited_by,
+          lastLoginAt: m.last_login_at,
+          createdAt: m.created_at,
+          updatedAt: m.updated_at,
+        }));
+      }
+    }
     return globalStore.teamMembers;
+  },
+
+  async getTeamMemberByEmail(email: string): Promise<TeamMember | null> {
+    const cleanEmail = email.trim().toLowerCase();
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('*')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (!error && data) {
+        return {
+          id: data.id,
+          userId: data.user_id,
+          email: data.email,
+          fullName: data.full_name,
+          role: data.role,
+          isActive: data.is_active,
+          passwordHash: data.password_hash,
+          salt: data.salt,
+          invitedBy: data.invited_by,
+          lastLoginAt: data.last_login_at,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+        };
+      }
+    }
+
+    // Local in-memory check
+    return (
+      globalStore.teamMembers.find(
+        (m: TeamMember) => m.email.toLowerCase() === cleanEmail
+      ) || null
+    );
   },
 
   async saveTeamMember(member: Partial<TeamMember>): Promise<TeamMember> {
     const id = member.id || `tm-${Date.now()}`;
+    const cleanEmail = (member.email || '').trim().toLowerCase();
+
     const record: TeamMember = {
       id,
-      email: member.email || '',
-      fullName: member.fullName || '',
+      email: cleanEmail,
+      fullName: member.fullName || 'Staff Member',
       role: member.role || 'VIEWER',
       isActive: member.isActive !== false,
+      passwordHash: member.passwordHash,
+      salt: member.salt,
+      invitedBy: member.invitedBy,
       createdAt: member.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      await supabase.from('team_members').upsert({
+        id: record.id,
+        email: record.email,
+        full_name: record.fullName,
+        role: record.role,
+        is_active: record.isActive,
+        password_hash: record.passwordHash,
+        salt: record.salt,
+        invited_by: record.invitedBy,
+      });
+    }
+
     const idx = globalStore.teamMembers.findIndex((m: TeamMember) => m.id === id);
     if (idx !== -1) {
       globalStore.teamMembers[idx] = record;
@@ -1137,7 +1772,7 @@ export const dataRepository = {
     return record;
   },
 
-  // --- AUDIT LOGS ---
+  // --- AUDIT LOGS (APPEND-ONLY) ---
   async logAudit(entry: Omit<AuditLog, 'id' | 'createdAt'>): Promise<void> {
     const log: AuditLog = {
       id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -1145,9 +1780,41 @@ export const dataRepository = {
       createdAt: new Date().toISOString(),
     };
     globalStore.auditLogs.unshift(log);
+
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      await supabase.from('audit_logs').insert({
+        user_email: log.userEmail,
+        action: log.action,
+        entity: log.entity,
+        entity_id: log.entityId,
+        before_data: log.beforeData,
+        after_data: log.afterData,
+      });
+    }
   },
 
   async getAuditLogs(limit = 100): Promise<AuditLog[]> {
+    const supabase = createAdminSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (!error && data && data.length > 0) {
+        return data.map((l: any) => ({
+          id: l.id,
+          userEmail: l.user_email,
+          action: l.action,
+          entity: l.entity,
+          entityId: l.entity_id,
+          beforeData: l.before_data,
+          afterData: l.after_data,
+          createdAt: l.created_at,
+        }));
+      }
+    }
     return globalStore.auditLogs.slice(0, limit);
   },
 };

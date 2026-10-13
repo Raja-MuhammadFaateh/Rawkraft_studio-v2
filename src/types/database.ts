@@ -64,6 +64,8 @@ export interface TeamMember {
   fullName: string;
   role: AdminRole;
   isActive: boolean;
+  passwordHash?: string;
+  salt?: string;
   invitedBy?: string;
   lastLoginAt?: string;
   createdAt: string;
